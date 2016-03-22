@@ -34,6 +34,10 @@ class JS implements ArrayAccess
     {
     }
 
+    public function evaluate($jsCode)
+    {
+    }
+    
     public function export($name)
     {
     }

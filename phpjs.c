@@ -61,7 +61,7 @@ void zval_to_duk(duk_context * ctx, char * name, zval * value)
     DONE : IS_DOUBLE   2
     DONE : IS_BOOL     3
     DONE : IS_ARRAY    4
-    TODO : IS_OBJECT   5
+    INPROGRESS : IS_OBJECT   5
     DONE : IS_STRING   6
     DONE : IS_RESOURCE 7
     TODO : IS_CONSTANT 8

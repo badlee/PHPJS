@@ -76,7 +76,7 @@ ZEND_METHOD(JS, __construct)
     "   var get_from_php = __get_from_php;" \
     "   var set_into_php = __set_into_php;" \
     "   var require_from_php = __require_from_php;" \
-    "   API = __get_from_php = undefined;" \
+    "   API = __require_from_php = __set_into_php = __get_from_php = undefined;" \
     "   delete API;" \
     "   delete __set_into_php;" \
     "   delete __require_from_php;" \

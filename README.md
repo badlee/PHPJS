@@ -16,7 +16,7 @@ How to install it?
 
 ```bash
 phpize
-./configure --enable-js
+./configure
 make install
 ```
 
@@ -25,6 +25,7 @@ Then add `extension=phpjs.so` to your php.ini
 How to use it?
 
 There is `JS` class, each instance runs it's own Javascript *virtual machine* (or duktape's context).
+
 
 ```php
 $js1 = new JS;
