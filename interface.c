@@ -39,6 +39,84 @@ ZEND_METHOD(JS, __construct)
     FETCH_THIS_EX(0);
     obj->ctx = duk_create_heap(NULL, NULL, NULL, getThis(), NULL);
     duk_php_init(obj->ctx);
+    // set API
+    {
+        zval* a_value;
+        zval* require_fn;
+        zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|zz", &a_value, &require_fn);
+        if(IS_ARRAY ==  Z_TYPE_P(a_value)){
+            zval_to_duk(obj->ctx, "API", a_value);
+        } else {
+            duk_push_global_object(obj->ctx);
+            duk_push_true(obj->ctx);
+            duk_put_global_string(obj->ctx, "API");
+            duk_pop(obj->ctx); 
+        }
+    }
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, php_mod_search_handler, 1 /*nargs*/);
+    duk_put_prop_string(obj->ctx, -2, "__require_from_php");
+    duk_pop(obj->ctx);
+    
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, duk_set_into_php, DUK_VARARGS);
+    duk_put_prop_string(obj->ctx, -2, "__set_into_php");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, duk_get_from_php, DUK_VARARGS);
+    duk_put_prop_string(obj->ctx, -2, "__get_from_php");
+    duk_pop(obj->ctx);
+
+    duk_push_string(obj->ctx,
+    "var PHP,$PHP;" \
+    "(function(){" \
+    "   var api = API;" \
+    "   var get_from_php = __get_from_php;" \
+    "   var set_into_php = __set_into_php;" \
+    "   var require_from_php = __require_from_php;" \
+    "   API = __get_from_php = undefined;" \
+    "   delete API;" \
+    "   delete __set_into_php;" \
+    "   delete __require_from_php;" \
+    "   delete __get_from_php;" \
+    "   $PHP = {" \
+    "       set: function(self,name) {" \
+    "           var b = []; for(var i = 0;i<arguments.length;i++)b[i] = arguments[i];"
+    "           return (typeof api == 'boolean' && api === true) || (api.length && api.indexOf(name) != -1) ? set_into_php.apply(this,b) : undefined;" \
+    "       }," \
+    "       get: function(self,name) {" \
+    "           var b = []; for(var i = 0;i<arguments.length;i++)b[i] = arguments[i];"
+    "           return (typeof api == 'boolean' && api === true) || (api.length && api.indexOf(name) != -1) ? get_from_php.apply(this,b) : undefined;" \
+    "       }" \
+    "    };" \
+    "   if(typeof api == 'boolean' && api === true){" \
+    "       $PHP.get = get_from_php;" \
+    "       $PHP.set = set_into_php;" \
+    "   }" \
+    "   $PHP = new Proxy({},$PHP);" \
+    "   PHP = $PHP;" \
+    "   Duktape.modSearch = function (id,require, exportsOrg) {" \
+    "        var module = {exports:null},exports={},ret = require_from_php(String(id));" \
+    "        if (ret && typeof ret === 'string'){" \
+    "            try{"\
+    "               (new Function('module,exports',ret))(module,exports);" \
+    "               exports = module.exports || exports;" \
+    "               for(var i in exports) exportsOrg[i] = exports[i];"\
+    "               module = exports = null;"\
+    "               return;"\
+    "             }catch(e){throw 'module '+id+': ' + e.message;}" \
+    "        }" \
+    "        throw new Error('module not found: \"' + id+'\"');" \
+    "    };" \
+    "})()"
+    );
+
+    if (duk_peval(obj->ctx) != 0) {
+        printf("eval failed: %s\n", duk_safe_to_string(obj->ctx, -1));
+    }
+    duk_pop(obj->ctx);
 }
 
 ZEND_METHOD(JS, load)
@@ -266,6 +344,7 @@ PHP_MINIT_FUNCTION(phpjs)
     phpjs_JS_ptr = zend_register_internal_class(&_ce TSRMLS_CC);
     phpjs_JS_ptr->create_object = phpjs_new_vm;
     zend_do_implement_interface(phpjs_JS_ptr, zend_ce_arrayaccess TSRMLS_CC);
+
 
     php_register_object_handler(TSRMLS_C);
     php_register_function_handler(TSRMLS_C);

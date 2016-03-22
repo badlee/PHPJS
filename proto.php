@@ -4,6 +4,7 @@ final class JSException extends Exception
 {
 }
 
+
 final class JSFunctionWrapper
 {
     public function __invoke()

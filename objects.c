@@ -81,3 +81,88 @@ void php_register_object_handler(TSRMLS_D)
     phpjs_JSObjectWrapper_ptr = zend_register_internal_class(&_ce TSRMLS_CC);
     phpjs_JSObjectWrapper_ptr->create_object = phpjs_function_new;
 }
+
+duk_ret_t php_object_handler(duk_context *ctx) {
+    if (duk_is_constructor_call(ctx)) {
+        duk_push_string(ctx, "Can not call this function as constructor");
+        duk_throw(ctx);
+        return 1;
+    }
+    zval *func;
+    phpjs_object_hanler * obj;
+    MAKE_STD_ZVAL(func);
+    obj = (phpjs_object_hanler *) emalloc(sizeof(phpjs_object_hanler));
+    memset(obj, 0, sizeof(phpjs_object_hanler));
+    /* get Function Name */
+    duk_push_current_function(ctx);
+    duk_get_prop_string(ctx, -1, "__function");
+    duk_to_zval(&func, ctx, -1);
+    duk_pop(ctx);
+    
+    /* get Resource Value ({vm:zval, ctx:duk_context*, idx:duk_idx_t}) */
+    duk_push_current_function(ctx);
+    duk_get_prop_string(ctx, -1, "__res");
+    obj = duk_get_pointer(ctx, -1);
+    duk_pop(ctx);
+    /* TODO EXEC Object Handler */
+
+    duk_push_undefined(ctx);
+    return 1;
+}
+
+duk_ret_t php_mod_search_handler(duk_context *ctx){
+    /* Nargs was given as 4 and we get the following stack arguments:
+     *   index 0: id
+     *   index 1: require
+     *   index 2: exports
+     *   index 3: module
+     */
+    const char *buf;
+    int returnVal = DUK_EXEC_SUCCESS,i;
+    zval *retval, *func, *params[1];
+
+    MAKE_STD_ZVAL(func);
+    MAKE_STD_ZVAL(retval);
+    
+    zval *val;
+    MAKE_STD_ZVAL(val);
+    duk_to_zval(&val,ctx,0); // get ID
+    params[0] = val;
+
+
+
+    /* set function name */
+    char * str = "JSModSearch";
+    ZVAL_STRINGL(func, str, strlen(str),  1);
+    /* exec PHP function : JSModSearch */
+    TSRMLS_FETCH();
+    if(call_user_function(CG(function_table), NULL, func, retval, 1, params TSRMLS_CC) != SUCCESS) {
+        returnVal = DUK_RET_ERROR;
+        duk_push_error_object(ctx, DUK_ERR_ERROR, "module not found: \"%s\"", Z_STRVAL_P(val));
+        duk_throw(ctx);
+    }
+    if (EG(exception) != NULL) {
+        returnVal = DUK_RET_INTERNAL_ERROR;
+        /* There was an exception in the PHP side, let's catch it and throw as a JS exception */
+        duk_push_string(ctx, Z_EXCEPTION_PROP("message"));
+        zend_clear_exception(TSRMLS_C);
+        duk_throw(ctx);
+    }
+
+    if(returnVal == DUK_EXEC_SUCCESS && Z_TYPE_P(retval) == IS_STRING) {
+        returnVal = 1;
+        duk_push_string(ctx, Z_STRVAL_P(retval));
+    }else if(Z_TYPE_P(retval) != IS_NULL){
+        duk_push_error_object(ctx, DUK_ERR_TYPE_ERROR, "module not loadable : \"%s\"", Z_STRVAL_P(val));
+        duk_throw(ctx);
+        returnVal = DUK_RET_TYPE_ERROR;
+    }else{
+        returnVal = DUK_EXEC_SUCCESS;
+    }
+
+    zval_ptr_dtor(&func);
+    zval_ptr_dtor(&retval);
+    zval_ptr_dtor(&params[0]);
+
+    return returnVal ;
+}
