@@ -18,15 +18,14 @@ duk_ret_t duk_php_print(duk_context * ctx)
 
     return 1;
 }
+int LAMBDA_CALLBACK_INDEX = -1000;
 
-
-void duk_php_init(duk_context * ctx)
+void duk_php_init(php_js_t* obj)
 {
-    duk_push_global_object(ctx);
-    duk_push_c_function(ctx, duk_php_print, DUK_VARARGS);
-    duk_put_prop_string(ctx, -2, "print");
-    duk_pop(ctx);
-
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, duk_php_print, DUK_VARARGS);
+    duk_put_prop_string(obj->ctx, -2, "print");
+    duk_pop(obj->ctx);
 }
 
 void duk_php_throw(duk_context * ctx, duk_idx_t idx TSRMLS_DC)
@@ -111,28 +110,49 @@ void zval_to_duk(duk_context * ctx, char * name, zval * value)
         }
         break;
     case IS_NULL:
-        duk_push_false(ctx);
+        duk_push_null(ctx);
         break;
     case IS_RESOURCE:
         duk_push_pointer(ctx, Z_RESVAL_P(value));
         break;
     case IS_OBJECT: {
-            if(zend_is_callable(value, 0, NULL TSRMLS_CC)){
-                phpjs_object_hanler * obj;
-                obj = (phpjs_object_hanler *) emalloc(sizeof(phpjs_object_hanler));
-                memset(obj, 0, sizeof(phpjs_object_hanler));
-                obj->vm = *value;
-                obj->ctx = ctx;
-                //php_printf("\nICI %s %p %u\n",name,value,Z_TYPE_P(value));
-                /// *
-                obj->idx = duk_push_c_function(ctx, php_object_handler, DUK_VARARGS);
-                duk_push_string(ctx, name);
+            zval *val;
+            MAKE_STD_ZVAL(val);
+            ZVAL_ZVAL(val,value,1,0);
+            if(zend_is_callable(val, 0, NULL TSRMLS_CC)){
+                duk_push_c_function(ctx, php_object_handler, DUK_VARARGS);
+                duk_push_string(ctx, "__invoke");
                 duk_put_prop_string(ctx, -2, "__function");
-                duk_push_pointer(ctx, obj);
-                duk_put_prop_string(ctx, -2, "__res");
+                duk_push_pointer(ctx, val);
+                duk_put_prop_string(ctx, -2, "__zval__");
                 // * /                
             }else{
-                /* from php-lua*/
+                // create a proxy for handle value and method
+                duk_int_t rc,args = 1;
+                char * className ;
+                zend_uint classNameLength;  
+                duk_push_string(ctx, "(function(r,c) { return Duktape.initPHPObj(r,c); })");
+                duk_peval(ctx); 
+                duk_push_int(ctx, LAMBDA_CALLBACK_INDEX++);
+                duk_push_pointer(ctx, val);
+                // TODO : Get Class Name
+                int ret =FAILURE;
+                ret = zend_get_object_classname(value,&className,&classNameLength);
+                if(ret == SUCCESS){
+                    args++;
+                    duk_push_string(ctx,className);
+                }
+                rc = duk_pcall_method(ctx, args);
+                if (rc != DUK_EXEC_SUCCESS) {
+                    printf("error: %s\n", duk_to_string(ctx, -1));
+                    duk_push_undefined(ctx);
+                } 
+                // */
+
+                //duk_pop(ctx);
+                //duk_pop(ctx);
+                //duk_push_object(ctx);
+                /* from php-lua* /
                 HashTable *ht       = NULL;
                 zval    **ppzval    = NULL;
 
@@ -148,10 +168,10 @@ void zval_to_duk(duk_context * ctx, char * name, zval * value)
                 for(zend_hash_internal_pointer_reset(ht);
                         zend_hash_get_current_data(ht, (void **)&ppzval) == SUCCESS;
                         zend_hash_move_forward(ht)) {
-                    /* write value */
+                    // write value
                     zval_to_duk(ctx,NULL,*ppzval); //php_lua_send_zval_to_lua(L, *ppzval TSRMLS_CC);
 
-                    /* lookup key*/
+                    // lookup key
                     char *key = NULL;
                     uint len  = 0;
                     ulong idx  = 0;
@@ -161,7 +181,7 @@ void zval_to_duk(duk_context * ctx, char * name, zval * value)
                             MAKE_STD_ZVAL(zkey);
                             ZVAL_STRINGL(zkey, key, len - 1, 1);
                             duk_put_prop_string(ctx,obj_idx,Z_STRVAL_P(zkey));
-                            /* write key */
+                            // write key 
                             zval_to_duk(ctx, NULL, zkey);//php_lua_send_zval_to_lua(L, zkey TSRMLS_CC);
                             break;
                         case HASH_KEY_IS_LONG:
@@ -173,6 +193,8 @@ void zval_to_duk(duk_context * ctx, char * name, zval * value)
                     zval_ptr_dtor(&zkey);
                 }
                 --ht->nApplyCount;
+                duk_dup(ctx,obj_idx);  // pop object
+
                 /* end from php-lua*/
                 //duk_push_int(ctx, 42); // add proprety
                 //duk_put_prop_string(ctx, obj_idx, "meaningOfLife"); // add propertie name
@@ -182,7 +204,6 @@ void zval_to_duk(duk_context * ctx, char * name, zval * value)
                 //duk_put_prop_string(ctx, obj_idx, "toto"); // add propertie name
                 /* object is now: { "meaningOfLife": 42 } */
 
-                duk_dup(ctx,obj_idx);  /* pop object */
             }
             break;
         }
@@ -297,7 +318,7 @@ void duk_to_zval(zval ** var, duk_context * ctx, duk_idx_t idx)
     case DUK_TYPE_POINTER:
         //php_printf("duk_to_zval type %u\n",duk_get_type(ctx, idx));
         ZVAL_RESOURCE(*var,duk_get_pointer(ctx, idx));
-        return;
+        break;
     }
 }
 
@@ -384,7 +405,6 @@ duk_ret_t duk_set_into_php(duk_context * ctx)
 
 duk_ret_t duk_get_from_php(duk_context * ctx)
 {
-    int args = duk_get_top(ctx);
     char * name = duk_get_string(ctx, 1);
 
     if (name[0] == '$') {

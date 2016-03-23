@@ -81,33 +81,225 @@ void php_register_object_handler(TSRMLS_D)
     phpjs_JSObjectWrapper_ptr = zend_register_internal_class(&_ce TSRMLS_CC);
     phpjs_JSObjectWrapper_ptr->create_object = phpjs_function_new;
 }
+duk_ret_t phpjs_empty_function(duk_context *ctx) {
+    if (duk_is_constructor_call(ctx)) {
+        duk_push_string(ctx, "Can not call this function as constructor");
+        duk_throw(ctx);
+        return DUK_RET_ERROR;
+    }
+
+    return 0;
+}
+
+duk_ret_t phpjs_obj_get_function(duk_context *ctx) {
+    zval * value = duk_get_pointer(ctx, 0);
+    char * name = duk_get_string(ctx, 1);
+    {
+        zval * prop;
+        MAKE_STD_ZVAL(prop);
+        TSRMLS_FETCH();
+        prop = zend_read_property(zend_get_class_entry(value TSRMLS_DC),value,name,strlen(name),1 TSRMLS_DC);
+        if (EG(exception) != NULL) {
+            // There was an exception in the PHP side, let's catch it and throw as a JS exception
+            duk_push_string(ctx, Z_EXCEPTION_PROP("message"));
+            zend_clear_exception(TSRMLS_C);
+            duk_throw(ctx);
+            return DUK_RET_INTERNAL_ERROR;
+        }
+        if(Z_TYPE_P(prop) == 0){
+            if(Z_OBJ_HT_P(value)->get_method(&value,name,strlen(name), NULL TSRMLS_DC) != 0){    
+                duk_push_c_function(ctx, php_object_handler, DUK_VARARGS);
+                duk_push_string(ctx, name);
+                duk_put_prop_string(ctx, -2, "__function");
+                duk_push_pointer(ctx, value);
+                duk_put_prop_string(ctx, -2, "__zval__");
+            }else{
+                duk_push_null(ctx);
+            }
+        }else{
+            zval_to_duk(ctx, NULL, prop);
+        }
+        //zval_ptr_dtor(&prop); // bug
+        return 1;
+    }
+    return 0;
+}
+duk_ret_t phpjs_obj_keys_function(duk_context *ctx) {
+    zval * value = duk_get_pointer(ctx, 0);
+    HashTable *ht       = NULL;
+    zval    **ppzval    = NULL;
+    int arr_idx         = 0;
+
+    ht = Z_OBJ_HT_P(value)->get_properties((value) TSRMLS_CC);
+    
+    duk_idx_t obj_idx = duk_push_array(ctx); // lua_newtable(L);
+    for(zend_hash_internal_pointer_reset(ht);
+            zend_hash_get_current_data(ht, (void **)&ppzval) == SUCCESS;
+            zend_hash_move_forward(ht)) {
+        // lookup key
+        char *key = NULL;
+        uint len  = 0;
+        ulong idx  = 0;
+        zval *zkey= NULL;
+        switch(zend_hash_get_current_key_ex(ht, &key, &len, &idx, 0, NULL)) {
+            case HASH_KEY_IS_STRING :
+                MAKE_STD_ZVAL(zkey);
+                ZVAL_STRINGL(zkey, key, len - 1, 1);
+                duk_push_string(ctx,Z_STRVAL_P(zkey));
+                break;
+            case HASH_KEY_IS_LONG:
+                MAKE_STD_ZVAL(zkey);
+                ZVAL_LONG(zkey, idx);
+                duk_push_string(ctx,Z_LVAL_P(zkey));
+                break;
+        }
+        zval_ptr_dtor(&zkey);
+        // write value
+        duk_put_prop_index(ctx, obj_idx, arr_idx++);
+    }
+
+    /* end from php-lua*/
+    return 1;
+}
+
+duk_ret_t phpjs_obj_has_function(duk_context *ctx) {
+    zval * value = duk_get_pointer(ctx, 0);
+    char * name = duk_get_string(ctx, 1);
+    zval * key;
+    MAKE_STD_ZVAL(key);
+
+    ZVAL_STRINGL(key, name, strlen(name),  1);
+    if(Z_OBJ_HT_P(value)->has_property(value, key,2, NULL TSRMLS_CC))
+        duk_push_true(ctx);
+    else {
+        // check if method exist return NULL pointer if not exist
+        if(Z_OBJ_HT_P(value)->get_method(&value,name,strlen(name), NULL TSRMLS_DC) != NULL){
+            duk_push_true(ctx);
+        }else{
+            duk_push_false(ctx);
+        }
+    }
+    zval_ptr_dtor(&key);
+    return 1;
+}
+
+duk_ret_t phpjs_obj_set_function(duk_context *ctx) {
+    zval * value = duk_get_pointer(ctx, 0);
+    char * name = duk_get_string(ctx, 1);
+    zval * key;
+    zval *val;
+    int returnVal = 1;
+    MAKE_STD_ZVAL(key);
+    MAKE_STD_ZVAL(val);
+
+    duk_to_zval(&val,ctx, 2);
+    ZVAL_STRINGL(key, name, strlen(name),  1);
+    
+    Z_OBJ_HT_P(value)->write_property(value, key,val, NULL TSRMLS_CC);
+    if (EG(exception) != NULL) {
+            returnVal = DUK_RET_INTERNAL_ERROR;
+            // There was an exception in the PHP side, let's catch it and throw as a JS exception
+            duk_push_string(ctx, Z_EXCEPTION_PROP("message"));
+            zend_clear_exception(TSRMLS_C);
+            duk_throw(ctx);
+    }else{
+        duk_push_true(ctx);
+    }
+    zval_ptr_dtor(&key);
+    return returnVal;
+}
+
+duk_ret_t phpjs_obj_delete_function(duk_context *ctx) {
+    zval * value = duk_get_pointer(ctx, 0);
+    char * name = duk_get_string(ctx, 1);
+    zval * key;
+    int returnVal = 1;
+    MAKE_STD_ZVAL(key);
+    ZVAL_STRINGL(key, name, strlen(name),  1);
+    
+    Z_OBJ_HT_P(value)->unset_property(value, key, NULL TSRMLS_CC);
+    if (EG(exception) != NULL) {
+            returnVal = DUK_RET_INTERNAL_ERROR;
+            // There was an exception in the PHP side, let's catch it and throw as a JS exception
+            duk_push_string(ctx, Z_EXCEPTION_PROP("message"));
+            zend_clear_exception(TSRMLS_C);
+            duk_throw(ctx);
+    }else{
+        duk_push_true(ctx);
+    }
+    zval_ptr_dtor(&key);
+    return returnVal;
+}
+
 
 duk_ret_t php_object_handler(duk_context *ctx) {
     if (duk_is_constructor_call(ctx)) {
         duk_push_string(ctx, "Can not call this function as constructor");
         duk_throw(ctx);
-        return 1;
+        return DUK_RET_ERROR;
     }
-    zval *func;
-    phpjs_object_hanler * obj;
+    int returnVal = DUK_EXEC_SUCCESS,i,args = duk_get_top(ctx); /* function args */
+    zval *func, *value, *retval, *params[args];
+
     MAKE_STD_ZVAL(func);
-    obj = (phpjs_object_hanler *) emalloc(sizeof(phpjs_object_hanler));
-    memset(obj, 0, sizeof(phpjs_object_hanler));
-    /* get Function Name */
+    MAKE_STD_ZVAL(retval);
+    MAKE_STD_ZVAL(value);
+
+    /* get Resource Value (zval *) */
+    duk_push_current_function(ctx);
+    duk_get_prop_string(ctx, -1, "__zval__");
+    value = (zval *) duk_get_pointer(ctx, -1);
+    duk_pop(ctx);
+
+    /* get function name  */
     duk_push_current_function(ctx);
     duk_get_prop_string(ctx, -1, "__function");
-    duk_to_zval(&func, ctx, -1);
+    duk_to_zval(&func,ctx,-1);
     duk_pop(ctx);
     
-    /* get Resource Value ({vm:zval, ctx:duk_context*, idx:duk_idx_t}) */
-    duk_push_current_function(ctx);
-    duk_get_prop_string(ctx, -1, "__res");
-    obj = duk_get_pointer(ctx, -1);
-    duk_pop(ctx);
-    /* TODO EXEC Object Handler */
+    /* get arguments */
+    for(i=0; i<args;i++){
+        zval *val;
+        MAKE_STD_ZVAL(val);
+        duk_to_zval(&val,ctx,i);
+        params[i] = val;
+    }
+    /* end get */
 
-    duk_push_undefined(ctx);
-    return 1;
+    /* EXEC Object Handler */
+    {
+        
+        // exec PHP function : __invoke
+        TSRMLS_FETCH();
+        if(call_user_function(NULL, &value, func, retval, args, params TSRMLS_CC) != SUCCESS){
+            returnVal = DUK_ERR_ERROR;
+            duk_push_error_object(ctx, DUK_ERR_ERROR, "Unknown function: \"%s\"", Z_STRVAL_P(func));
+            duk_throw(ctx);
+        };
+
+        if (EG(exception) != NULL) {
+            returnVal = DUK_RET_INTERNAL_ERROR;
+            // There was an exception in the PHP side, let's catch it and throw as a JS exception
+            duk_push_string(ctx, Z_EXCEPTION_PROP("message"));
+            zend_clear_exception(TSRMLS_C);
+            duk_throw(ctx);
+        }
+        if(returnVal == DUK_EXEC_SUCCESS){
+            returnVal = Z_TYPE_P(retval) == 0 ? 0 : 1;
+            zval_to_duk(ctx, NULL, retval);
+        }
+    }
+
+    zval_ptr_dtor(&func);
+    zval_ptr_dtor(&retval);
+    /* END EXEC */
+
+    /* free args */
+    for(i=0; i<args;i++){
+        if(Z_TYPE_P(params[i]) != IS_RESOURCE)
+            zval_ptr_dtor(&params[i]);
+    }
+    return returnVal;
 }
 
 duk_ret_t php_mod_search_handler(duk_context *ctx){
@@ -119,13 +311,14 @@ duk_ret_t php_mod_search_handler(duk_context *ctx){
      */
     const char *buf;
     int returnVal = DUK_EXEC_SUCCESS,i;
-    zval *retval, *func, *params[1];
+    zval *val,*udata,*retval, *func, *params[1];
+    //php_js_t* obj;
 
     MAKE_STD_ZVAL(func);
     MAKE_STD_ZVAL(retval);
-    
-    zval *val;
+    MAKE_STD_ZVAL(udata);
     MAKE_STD_ZVAL(val);
+
     duk_to_zval(&val,ctx,0); // get ID
     params[0] = val;
 
@@ -134,9 +327,26 @@ duk_ret_t php_mod_search_handler(duk_context *ctx){
     /* set function name */
     char * str = "JSModSearch";
     ZVAL_STRINGL(func, str, strlen(str),  1);
+
+    /* found zval object JS */
+    duk_push_global_object(ctx);
+    duk_memory_functions mem;
+    duk_get_memory_functions(ctx, &mem);
+    udata = mem.udata;
+    duk_pop(ctx);
+    
     /* exec PHP function : JSModSearch */
     TSRMLS_FETCH();
-    if(call_user_function(CG(function_table), NULL, func, retval, 1, params TSRMLS_CC) != SUCCESS) {
+    int ret = FAILURE;
+
+    ret = call_user_function(NULL, &udata, func, retval, 1, params TSRMLS_CC);
+    if (EG(exception) != NULL){
+        // ignore error if JSModSearch not found in global stack
+        zend_clear_exception(TSRMLS_C);
+        ret = FAILURE;
+    }
+
+    if(ret != SUCCESS && call_user_function(CG(function_table), NULL, func, retval, 1, params TSRMLS_CC) != SUCCESS) {
         returnVal = DUK_RET_ERROR;
         duk_push_error_object(ctx, DUK_ERR_ERROR, "module not found: \"%s\"", Z_STRVAL_P(val));
         duk_throw(ctx);

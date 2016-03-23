@@ -8,11 +8,13 @@
 PHPAPI zend_class_entry *phpjs_JSException_ptr;
 PHPAPI zend_class_entry *phpjs_JS_ptr;
 
-typedef struct {
-    zend_object zo;
-    duk_context * ctx;
-} php_js_t;
 
+
+#define php_register_function(ctx,var,fn) \
+    duk_get_global_string(ctx, var);\
+    duk_push_c_function(ctx, phpjs_empty_function, 0 /*nargs*/);\
+    duk_put_prop_string(ctx, -2, fn);\
+    duk_pop(ctx);
 
 ZEND_METHOD(JS, evaluate)
 {
@@ -38,7 +40,7 @@ ZEND_METHOD(JS, __construct)
 {
     FETCH_THIS_EX(0);
     obj->ctx = duk_create_heap(NULL, NULL, NULL, getThis(), NULL);
-    duk_php_init(obj->ctx);
+    duk_php_init(obj);
     // set API
     {
         zval* a_value;
@@ -69,47 +71,139 @@ ZEND_METHOD(JS, __construct)
     duk_put_prop_string(obj->ctx, -2, "__get_from_php");
     duk_pop(obj->ctx);
 
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_empty_function, DUK_VARARGS);
+    duk_put_prop_string(obj->ctx, -2, "__register_function");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_empty_function, DUK_VARARGS);
+    duk_put_prop_string(obj->ctx, -2, "__new_class");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_empty_function, DUK_VARARGS);
+    duk_put_prop_string(obj->ctx, -2, "__register_class");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_has_function, 2);
+    duk_put_prop_string(obj->ctx, -2, "__obj_has");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_get_function, 2);
+    duk_put_prop_string(obj->ctx, -2, "__obj_get");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_set_function, 3);
+    duk_put_prop_string(obj->ctx, -2, "__obj_set");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_delete_function, 2);
+    duk_put_prop_string(obj->ctx, -2, "__obj_delete");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_keys_function, 2);
+    duk_put_prop_string(obj->ctx, -2, "__obj_keys");
+    duk_pop(obj->ctx);
+
+
+
     duk_push_string(obj->ctx,
     "var PHP,$PHP;" \
     "(function(){" \
+    "   var obj_has = __obj_has; " \
+    "   var obj_get = __obj_get; " \
+    "   var obj_set = __obj_set; " \
+    "   var obj_delete = __obj_delete; " \
+    "   var obj_keys = __obj_keys; " \
     "   var api = API;" \
     "   var get_from_php = __get_from_php;" \
     "   var set_into_php = __set_into_php;" \
     "   var require_from_php = __require_from_php;" \
-    "   API = __require_from_php = __set_into_php = __get_from_php = undefined;" \
+    "   var register_function = __register_function;" \
+    "   var new_class = __new_class;" \
+    "   var register_class = __register_class;" \
+    "   __obj_has = __obj_get = __obj_set = __obj_delete = __obj_keys = API  = __register_function = __new_class = __register_class = __require_from_php = __set_into_php = __get_from_php = undefined;" \
+    "   delete __obj_has;" \
+    "   delete __obj_get;" \
+    "   delete __obj_set;" \
+    "   delete __obj_delete;" \
+    "   delete __obj_keys;" \
     "   delete API;" \
     "   delete __set_into_php;" \
     "   delete __require_from_php;" \
     "   delete __get_from_php;" \
+    "   delete __register_function;" \
+    "   delete __new_class;" \
+    "   delete __register_class;" \
     "   $PHP = {" \
     "       set: function(self,name) {" \
     "           var b = []; for(var i = 0;i<arguments.length;i++)b[i] = arguments[i];"
     "           return (typeof api == 'boolean' && api === true) || (api.length && api.indexOf(name) != -1) ? set_into_php.apply(this,b) : undefined;" \
     "       }," \
     "       get: function(self,name) {" \
+    "           if(name==='register_function') return register_function;" \
+    "           if(name==='new') return new_class;" \
+    "           if(name==='register_class') return register_class;" \
     "           var b = []; for(var i = 0;i<arguments.length;i++)b[i] = arguments[i];"
     "           return (typeof api == 'boolean' && api === true) || (api.length && api.indexOf(name) != -1) ? get_from_php.apply(this,b) : undefined;" \
     "       }" \
     "    };" \
-    "   if(typeof api == 'boolean' && api === true){" \
-    "       $PHP.get = get_from_php;" \
-    "       $PHP.set = set_into_php;" \
-    "   }" \
     "   $PHP = new Proxy({},$PHP);" \
     "   PHP = $PHP;" \
-    "   Duktape.modSearch = function (id,require, exportsOrg) {" \
-    "        var module = {exports:null},exports={},ret = require_from_php(String(id));" \
-    "        if (ret && typeof ret === 'string'){" \
-    "            try{"\
-    "               (new Function('module,exports',ret))(module,exports);" \
-    "               exports = module.exports || exports;" \
-    "               for(var i in exports) exportsOrg[i] = exports[i];"\
-    "               module = exports = null;"\
-    "               return;"\
-    "             }catch(e){throw 'module '+id+': ' + e.message;}" \
-    "        }" \
-    "        throw new Error('module not found: \"' + id+'\"');" \
-    "    };" \
+    "   var t = { "\
+    "       modSearch : {"\
+    "          enumerable: false,"\
+    "          configurable: false,"\
+    "          writable : false,"\
+    "          value: function (id,require, exportsOrg) {"\
+    "               var module = {exports:null},exports={},ret = require_from_php(String(id));"\
+    "               if (ret && typeof ret === 'string'){"\
+    "                   try{"\
+    "                      (new Function('module,exports',ret))(module,exports);"\
+    "                      exports = module.exports || exports;"\
+    "                      for(var i in exports) exportsOrg[i] = exports[i];"\
+    "                      module = exports = null;"\
+    "                      return;"\
+    "                    }catch(e){throw 'module '+id+': ' + e.message;}"\
+    "               }"\
+    "               throw new Error('module not found: \"' + id+'\"');"\
+    "           }"\
+    "       },"\
+    "       typeof : {"\
+    "          enumerable: false,"\
+    "          configurable: false,"\
+    "          writable : false,"\
+    "          value: function(v){"\
+    "              var t = typeof v;"\
+    "              return (t == 'object' && 'typeof' in v) ?"\
+    "                  ("\
+    "                      (v=v.typeof()) && typeof v=='string' ? v.toLowerCase() : t"\
+    "                  ) : t;"\
+    "          }"\
+    "       },"\
+    "       initPHPObj : {"\
+    "          enumerable: false,"\
+    "          configurable: false,"\
+    "          writable : false,"\
+    "          value: function(res,className){ "\
+    "             return new Proxy({}, { "\
+    "               has: function (self, name) { if(name=='typeof' || name=='toString' ) return true; return obj_has(res,name); }, "\
+    "               set: function (self,name,value) { return obj_set(res,name,value); }, "\
+    "               get: function (self,name) { if(name=='typeof') return function(){return (className || 'ob2ject');}; if(name=='toString') return function(){return '[object '+(className || 'Object')+']';}; return obj_get(res,name);}, "\
+    "               deleteProperty: function (self,name) { return obj_delete(res,name); }, "\
+    "               enumerate: function (self){ return obj_keys(res);}, "\
+    "               ownKeys: function (self){ return obj_keys(res);} "\
+    "             });"\
+    "           }"\
+    "       }    "\
+    "   };"\
+    "   Object.defineProperties(Duktape,t);" \
     "})()"
     );
 
@@ -117,6 +211,7 @@ ZEND_METHOD(JS, __construct)
         printf("eval failed: %s\n", duk_safe_to_string(obj->ctx, -1));
     }
     duk_pop(obj->ctx);
+
 }
 
 ZEND_METHOD(JS, load)
