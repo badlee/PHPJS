@@ -30,7 +30,7 @@ $js['fn'] = function(){
 $js['j'] = new foo;
 
 $JS = '
-// enumerate  properties (methods is not enumerable)
+// enumerate  properties and methods
 for (var k in phpObj)
     print(k); 
 
@@ -73,8 +73,10 @@ $js->evaluate($JS);
 foo
 bar
 index
-foo,bar,index
-foo,bar,index
+fn_foo
+fn_bar
+foo,bar,index,fn_foo,fn_bar
+foo,bar,index,fn_foo,fn_bar
 0 foo bar
 baz
 1 bar foo
@@ -83,5 +85,5 @@ $index=1
 33 FOO foo
 null null null
 baz
-toString [object foo]
+toString [php_object foo]
 typeof foo

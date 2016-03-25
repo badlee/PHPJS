@@ -16,6 +16,7 @@ PHPAPI zend_class_entry *phpjs_JS_ptr;
     duk_put_prop_string(ctx, -2, fn);\
     duk_pop(ctx);
 
+
 ZEND_METHOD(JS, evaluate)
 {
     FETCH_THIS;
@@ -72,21 +73,6 @@ ZEND_METHOD(JS, __construct)
     duk_pop(obj->ctx);
 
     duk_push_global_object(obj->ctx);
-    duk_push_c_function(obj->ctx, phpjs_empty_function, DUK_VARARGS);
-    duk_put_prop_string(obj->ctx, -2, "__register_function");
-    duk_pop(obj->ctx);
-
-    duk_push_global_object(obj->ctx);
-    duk_push_c_function(obj->ctx, phpjs_empty_function, DUK_VARARGS);
-    duk_put_prop_string(obj->ctx, -2, "__new_class");
-    duk_pop(obj->ctx);
-
-    duk_push_global_object(obj->ctx);
-    duk_push_c_function(obj->ctx, phpjs_empty_function, DUK_VARARGS);
-    duk_put_prop_string(obj->ctx, -2, "__register_class");
-    duk_pop(obj->ctx);
-
-    duk_push_global_object(obj->ctx);
     duk_push_c_function(obj->ctx, phpjs_obj_has_function, 2);
     duk_put_prop_string(obj->ctx, -2, "__obj_has");
     duk_pop(obj->ctx);
@@ -125,10 +111,7 @@ ZEND_METHOD(JS, __construct)
     "   var get_from_php = __get_from_php;" \
     "   var set_into_php = __set_into_php;" \
     "   var require_from_php = __require_from_php;" \
-    "   var register_function = __register_function;" \
-    "   var new_class = __new_class;" \
-    "   var register_class = __register_class;" \
-    "   __obj_has = __obj_get = __obj_set = __obj_delete = __obj_keys = API  = __register_function = __new_class = __register_class = __require_from_php = __set_into_php = __get_from_php = undefined;" \
+    "   __obj_has = __obj_get = __obj_set = __obj_delete = __obj_keys = API  = __require_from_php = __set_into_php = __get_from_php = undefined;" \
     "   delete __obj_has;" \
     "   delete __obj_get;" \
     "   delete __obj_set;" \
@@ -138,18 +121,13 @@ ZEND_METHOD(JS, __construct)
     "   delete __set_into_php;" \
     "   delete __require_from_php;" \
     "   delete __get_from_php;" \
-    "   delete __register_function;" \
-    "   delete __new_class;" \
-    "   delete __register_class;" \
+
     "   $PHP = {" \
     "       set: function(self,name) {" \
     "           var b = []; for(var i = 0;i<arguments.length;i++)b[i] = arguments[i];"
     "           return (typeof api == 'boolean' && api === true) || (api.length && api.indexOf(name) != -1) ? set_into_php.apply(this,b) : undefined;" \
     "       }," \
     "       get: function(self,name) {" \
-    "           if(name==='register_function') return register_function;" \
-    "           if(name==='new') return new_class;" \
-    "           if(name==='register_class') return register_class;" \
     "           var b = []; for(var i = 0;i<arguments.length;i++)b[i] = arguments[i];"
     "           return (typeof api == 'boolean' && api === true) || (api.length && api.indexOf(name) != -1) ? get_from_php.apply(this,b) : undefined;" \
     "       }" \
@@ -195,7 +173,7 @@ ZEND_METHOD(JS, __construct)
     "             return new Proxy({}, { "\
     "               has: function (self, name) { if(name=='typeof' || name=='toString' ) return true; return obj_has(res,name); }, "\
     "               set: function (self,name,value) { return obj_set(res,name,value); }, "\
-    "               get: function (self,name) { if(name=='typeof') return function(){return (className || 'ob2ject');}; if(name=='toString') return function(){return '[object '+(className || 'Object')+']';}; return obj_get(res,name);}, "\
+    "               get: function (self,name) { if(name=='typeof') return function(){return (className || 'object');}; if(name=='toString') return function(){return '[php_object '+(className || 'Object')+']';}; return obj_get(res,name);}, "\
     "               deleteProperty: function (self,name) { return obj_delete(res,name); }, "\
     "               enumerate: function (self){ return obj_keys(res);}, "\
     "               ownKeys: function (self){ return obj_keys(res);} "\
@@ -207,11 +185,11 @@ ZEND_METHOD(JS, __construct)
     "})()"
     );
 
-    if (duk_peval(obj->ctx) != 0) {
-        printf("eval failed: %s\n", duk_safe_to_string(obj->ctx, -1));
-    }
-    duk_pop(obj->ctx);
-
+    if (duk_peval(obj->ctx) != SUCCESS) {
+        duk_pop(obj->ctx);
+        zend_error(E_ERROR, "Init JS Context failed");
+    }else
+        duk_pop(obj->ctx);
 }
 
 ZEND_METHOD(JS, load)

@@ -130,9 +130,9 @@ duk_ret_t phpjs_obj_keys_function(duk_context *ctx) {
     zval    **ppzval    = NULL;
     int arr_idx         = 0;
 
-    ht = Z_OBJ_HT_P(value)->get_properties((value) TSRMLS_CC);
-    
     duk_idx_t obj_idx = duk_push_array(ctx); // lua_newtable(L);
+    /* add property */
+    ht = Z_OBJ_HT_P(value)->get_properties((value) TSRMLS_CC);
     for(zend_hash_internal_pointer_reset(ht);
             zend_hash_get_current_data(ht, (void **)&ppzval) == SUCCESS;
             zend_hash_move_forward(ht)) {
@@ -146,6 +146,37 @@ duk_ret_t phpjs_obj_keys_function(duk_context *ctx) {
                 MAKE_STD_ZVAL(zkey);
                 ZVAL_STRINGL(zkey, key, len - 1, 1);
                 duk_push_string(ctx,Z_STRVAL_P(zkey));
+                break;
+            case HASH_KEY_IS_LONG:
+                MAKE_STD_ZVAL(zkey);
+                ZVAL_LONG(zkey, idx);
+                duk_push_string(ctx,Z_LVAL_P(zkey));
+                break;
+        }
+        zval_ptr_dtor(&zkey);
+        // write value
+        duk_put_prop_index(ctx, obj_idx, arr_idx++);
+    }
+
+    /* add method */
+    zend_class_entry *class_entry;
+    class_entry = Z_OBJ_HT_P(value)->get_class_entry((value) TSRMLS_CC);
+    ht = &class_entry->function_table;
+    for(zend_hash_internal_pointer_reset(ht);
+            zend_hash_get_current_data(ht, (void **)&ppzval) == SUCCESS;
+            zend_hash_move_forward(ht)) {
+        // lookup key
+        char *key = NULL;
+        uint len  = 0;
+        ulong idx  = 0;
+        zval *zkey= NULL;
+        switch(zend_hash_get_current_key_ex(ht, &key, &len, &idx, 0, NULL)) {
+            case HASH_KEY_IS_STRING :
+                MAKE_STD_ZVAL(zkey);
+                ZVAL_STRINGL(zkey, key, len - 1, 1);
+                char * e = Z_STRVAL_P(zkey);
+                if(e[0]=='_' && e[1]=='_') continue; //hide all /^__/
+                duk_push_string(ctx,e);
                 break;
             case HASH_KEY_IS_LONG:
                 MAKE_STD_ZVAL(zkey);
