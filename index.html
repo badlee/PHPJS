@@ -78,8 +78,8 @@ make install</pre></div>
 <h3>
 <a id="js-object-api" class="anchor" href="#js-object-api" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>JS Object (API)</h3>
 
-<h2>
-<a id="__constructor" class="anchor" href="#__constructor" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>__constructor</h2>
+<h4>
+<a id="__constructor" class="anchor" href="#__constructor" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>__constructor</h4>
 
 <p><strong><a href="https://github.com/PARAMS" class="user-mention">@PARAMS</a></strong>
     $allowedVarAndFunc (Optional) : String[]
@@ -91,8 +91,8 @@ make install</pre></div>
 <span class="pl-s1"><span class="pl-smi">$VM</span> <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-c1">JS</span>([<span class="pl-s"><span class="pl-pds">'</span>$myVar<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>$args<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>$argv<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>apache_getenv<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>apache_get_module<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>headers<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>date<span class="pl-pds">'</span></span>]);</span>
 <span class="pl-s1"><span class="pl-c">// the VM can handle only PHP function and get/set any PHP global variables listed</span></span></pre></div>
 
-<h2>
-<a id="load" class="anchor" href="#load" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>load</h2>
+<h4>
+<a id="load" class="anchor" href="#load" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>load</h4>
 
 <p><strong><a href="https://github.com/PARAMS" class="user-mention">@PARAMS</a></strong>
     $filename : String
@@ -102,8 +102,8 @@ make install</pre></div>
 <span class="pl-s1"><span class="pl-smi">$VM</span><span class="pl-k">-&gt;</span>load(<span class="pl-s"><span class="pl-pds">"</span>file.js<span class="pl-pds">"</span></span>); <span class="pl-c">// relative path,  throw an error if file not found</span></span>
 <span class="pl-s1"><span class="pl-smi">$VM</span><span class="pl-k">-&gt;</span>load(<span class="pl-s"><span class="pl-pds">"</span>/tmp/file2.js<span class="pl-pds">"</span></span>); <span class="pl-c">// with an absolute path</span></span></pre></div>
 
-<h2>
-<a id="evaluate" class="anchor" href="#evaluate" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>evaluate</h2>
+<h4>
+<a id="evaluate" class="anchor" href="#evaluate" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>evaluate</h4>
 
 <p><strong><a href="https://github.com/PARAMS" class="user-mention">@PARAMS</a></strong>
     $jsCode : String
@@ -113,7 +113,81 @@ make install</pre></div>
 <span class="pl-s1"><span class="pl-smi">$VM</span><span class="pl-k">-&gt;</span>evaluate(<span class="pl-s"><span class="pl-pds">"</span>var i = 1; print('From JS CODE',i);<span class="pl-pds">"</span></span>);</span>
 <span class="pl-s1"><span class="pl-smi">$VM</span><span class="pl-k">-&gt;</span>evaluate(<span class="pl-s"><span class="pl-pds">"</span>i++;print('From JS CODE',i);<span class="pl-pds">"</span></span>); <span class="pl-c">// allow to share data across code evalution (it's a same context)</span></span></pre></div>
 
-<p>** For more documentation look tests folder **</p>
+<h3>
+<a id="modules" class="anchor" href="#modules" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Modules</h3>
+
+<h4>
+<a id="module-loading" class="anchor" href="#module-loading" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Module loading</h4>
+
+<p>PHPJS (Duktape) has a built-in minimal module loading framework based on <a href="http://wiki.commonjs.org/wiki/Modules/1.1.1">CommonJS modules version 1.1.1</a>, with additional support for module.exports.</p>
+
+<p>Module is writen in javascript only</p>
+
+<div class="highlight highlight-source-js"><pre><span class="pl-c">// Module foo/bar</span>
+<span class="pl-c1">exports</span>.<span class="pl-en">hello</span> <span class="pl-k">=</span> <span class="pl-k">function</span>(){
+  <span class="pl-en">print</span>(<span class="pl-s"><span class="pl-pds">"</span>world<span class="pl-pds">"</span></span>);
+}</pre></div>
+
+<p>You can load modules from javascript code with the global require() function:</p>
+
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> mod <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">'</span>foo/bar<span class="pl-pds">'</span></span>);
+<span class="pl-smi">mod</span>.<span class="pl-en">hello</span>();</pre></div>
+
+<h4>
+<a id="module-lookup-function" class="anchor" href="#module-lookup-function" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Module lookup function</h4>
+
+<p>The modules lookup function is the PHP's global <code>JSModSearch</code> or the local function <code>$JS-&gt;JSModSearch</code></p>
+
+<h5>
+<a id="global-lookup-function" class="anchor" href="#global-lookup-function" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>global lookup function</h5>
+
+<div class="highlight highlight-text-html-php"><pre><span class="pl-s1"><span class="pl-c">// Global lookup function</span></span>
+<span class="pl-s1"><span class="pl-k">function</span> <span class="pl-en">JSModSearch</span>(<span class="pl-smi">$id</span>){</span>
+<span class="pl-s1">    <span class="pl-k">if</span> (<span class="pl-smi">$id</span> <span class="pl-k">===</span> <span class="pl-s"><span class="pl-pds">'</span>foo<span class="pl-pds">'</span></span>) {</span>
+<span class="pl-s1">        <span class="pl-k">return</span> <span class="pl-s"><span class="pl-pds">'</span>exports.hello = function() { print("Hello from foo!"); };<span class="pl-pds">'</span></span>;</span>
+<span class="pl-s1">    } <span class="pl-k">else</span> <span class="pl-k">if</span> (<span class="pl-smi">$id</span> <span class="pl-k">===</span> <span class="pl-s"><span class="pl-pds">'</span>bar<span class="pl-pds">'</span></span>) {</span>
+<span class="pl-s1">        <span class="pl-k">return</span> <span class="pl-s"><span class="pl-pds">'</span>exports.hello = function() { print("Hello from bar!"); };<span class="pl-pds">'</span></span>;</span>
+<span class="pl-s1">    }</span>
+<span class="pl-s1">}</span>
+<span class="pl-s1"><span class="pl-c">/* shared PHP vars and function */</span></span>
+<span class="pl-s1"><span class="pl-smi">$js</span> <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-c1">JS</span>([]);</span>
+<span class="pl-s1"><span class="pl-smi">$JS</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span></span></span>
+<span class="pl-s1"><span class="pl-s">var foo = require("foo");</span></span>
+<span class="pl-s1"><span class="pl-s">foo.hello();</span></span>
+<span class="pl-s1"><span class="pl-s">var bar = require("bar");</span></span>
+<span class="pl-s1"><span class="pl-s">bar.hello();</span></span>
+<span class="pl-s1"><span class="pl-s">try{</span></span>
+<span class="pl-s1"><span class="pl-s">    var nonExistentModule = require("nonExistentModule");</span></span>
+<span class="pl-s1"><span class="pl-s">}catch(e){</span></span>
+<span class="pl-s1"><span class="pl-s">     print("expected exception: " + e.message);</span></span>
+<span class="pl-s1"><span class="pl-s">}</span></span>
+<span class="pl-s1"><span class="pl-s"><span class="pl-pds">'</span></span>;</span>
+<span class="pl-s1"><span class="pl-smi">$js</span><span class="pl-k">-&gt;</span>evaluate(<span class="pl-smi">$JS</span>);</span></pre></div>
+
+<h5>
+<a id="local-lookup-function" class="anchor" href="#local-lookup-function" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>local lookup function</h5>
+
+<div class="highlight highlight-text-html-php"><pre><span class="pl-s1"><span class="pl-c">/* shared PHP vars and function */</span></span>
+<span class="pl-s1"><span class="pl-smi">$js</span> <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-c1">JS</span>();</span>
+<span class="pl-s1"><span class="pl-c">// Local lookup function</span></span>
+<span class="pl-s1"><span class="pl-smi">$js</span><span class="pl-k">-&gt;</span><span class="pl-smi">JSModSearch</span> <span class="pl-k">=</span> <span class="pl-k">function</span> (<span class="pl-smi">$id</span>){</span>
+<span class="pl-s1">    <span class="pl-k">if</span> (<span class="pl-smi">$id</span> <span class="pl-k">===</span> <span class="pl-s"><span class="pl-pds">'</span>foo/bar<span class="pl-pds">'</span></span>) {</span>
+<span class="pl-s1">        <span class="pl-k">return</span> <span class="pl-s"><span class="pl-pds">'</span>exports.hello = function() { print("Hello from foo/bar!"); };<span class="pl-pds">'</span></span>;</span>
+<span class="pl-s1">    } <span class="pl-k">else</span> <span class="pl-k">if</span> (<span class="pl-smi">$id</span> <span class="pl-k">===</span> <span class="pl-s"><span class="pl-pds">'</span>bar<span class="pl-pds">'</span></span>) {</span>
+<span class="pl-s1">        <span class="pl-k">return</span> <span class="pl-s"><span class="pl-pds">'</span>exports.hello = function() { print("Hello from bar!"); };<span class="pl-pds">'</span></span>;</span>
+<span class="pl-s1">    }</span>
+<span class="pl-s1">};</span>
+<span class="pl-s1"></span>
+<span class="pl-s1"><span class="pl-smi">$JS</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span></span></span>
+<span class="pl-s1"><span class="pl-s">var foo = require("foo");</span></span>
+<span class="pl-s1"><span class="pl-s">foo.hello();</span></span>
+<span class="pl-s1"><span class="pl-s"><span class="pl-pds">'</span></span>;</span>
+<span class="pl-s1"><span class="pl-smi">$js</span><span class="pl-k">-&gt;</span>evaluate(<span class="pl-smi">$JS</span>);</span></pre></div>
+
+<h2>
+<a id="more" class="anchor" href="#more" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>More</h2>
+
+<p><em>For more documentation look tests folder</em></p>
 
 <h2>
 <a id="todo" class="anchor" href="#todo" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>TODO</h2>
