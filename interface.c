@@ -430,7 +430,7 @@ PHP_MINFO_FUNCTION(phpjs)
 {
     php_info_print_table_start();
     php_info_print_table_header(2, "phpjs", "enabled");
-    php_info_print_table_row(2, "Version", "1.0");
+    php_info_print_table_row(2, "Version", "1.1.2");
     php_info_print_table_end();
 }
 
