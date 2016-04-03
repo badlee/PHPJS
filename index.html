@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-dark.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+
+    <title>PHPJS by badlee</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>PHPJS</h1>
+        <h2>Reel javascript VM inside PHP</h2>
+
+        <section id="downloads">
+          <a href="https://github.com/badlee/PHPJS/zipball/master" class="btn">Download as .zip</a>
+          <a href="https://github.com/badlee/PHPJS/tarball/master" class="btn">Download as .tar.gz</a>
+          <a href="https://github.com/badlee/PHPJS" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <h1>
+<a id="phpjs" class="anchor" href="#phpjs" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>PHPJS</h1>
+
+<p><strong><em>This is experimental</em></strong></p>
+
+<p>Run javascript inside PHP, powered by the awesome <a href="http://duktape.org">Duktape</a> Javascript engine.</p>
+
+<h2>
+<a id="why" class="anchor" href="#why" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Why?</h2>
+
+<ol>
+<li>It's fun!</li>
+<li>Javascript is becoming mainstream, with hundreds of libraries. Having an easy way of sharing code with Javascript natively makes using</li>
+<li>
+</ol>
+
+<h2>
+<a id="how-to-install-it" class="anchor" href="#how-to-install-it" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>How to install it?</h2>
+
+<div class="highlight highlight-source-shell"><pre>phpize
+./configure --enable-phpjs
+make install</pre></div>
+
+<p>Then add <code>extension=phpjs.so</code> to your php.ini</p>
+
+<p>How to use it?</p>
+
+<p>There is <code>JS</code> class, each instance runs it's own Javascript <em>virtual machine</em> (or duktape's context).</p>
+
+<div class="highlight highlight-text-html-php"><pre><span class="pl-s1"><span class="pl-smi">$js1</span> <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-c1">JS</span>;</span>
+<span class="pl-s1"><span class="pl-smi">$js1</span><span class="pl-k">-&gt;</span>load(<span class="pl-s"><span class="pl-pds">"</span>foobar.js<span class="pl-pds">"</span></span>);</span></pre></div>
+
+<p>The <code>JS</code> object is like a proxy between the <code>Javascript</code> and the <code>PHP</code> userlands. In the PHP side, the <code>JS</code> looks like an Array or an object.</p>
+
+<div class="highlight highlight-text-html-php"><pre><span class="pl-s1"><span class="pl-smi">$js</span>[<span class="pl-s"><span class="pl-pds">'</span>foobar<span class="pl-pds">'</span></span>] <span class="pl-k">=</span> <span class="pl-c1">1</span>; <span class="pl-c">// Set `foobar` inside Javascript (global variable)</span></span>
+<span class="pl-s1"><span class="pl-c1">var_dump</span>(<span class="pl-smi">$js</span>[<span class="pl-s"><span class="pl-pds">'</span>XXX<span class="pl-pds">'</span></span>]); <span class="pl-c">// Read global variable 'XXX' from javascript</span></span>
+<span class="pl-s1"><span class="pl-smi">$js</span><span class="pl-k">-&gt;</span>fnc(); <span class="pl-c">// Call fnc() function from Javascript.</span></span></pre></div>
+
+<p>Inside <code>Javascript</code> there are also some intergration. For instance we have a <code>PHP</code> (or <code>$PHP</code>) global object.</p>
+
+<div class="highlight highlight-source-js"><pre><span class="pl-c1">PHP</span>.<span class="pl-en">var_dump</span>(<span class="pl-s"><span class="pl-pds">"</span>something<span class="pl-pds">"</span></span>); <span class="pl-c">// Call a PHP function!</span>
+<span class="pl-c1">PHP</span>.<span class="pl-smi">$something</span> <span class="pl-k">=</span> <span class="pl-c1">1</span>; <span class="pl-c">// set a variable</span>
+<span class="pl-en">print</span>(<span class="pl-c1">PHP</span>.<span class="pl-smi">$something_else</span>); <span class="pl-c">// read a variable from PHP</span></pre></div>
+
+<h2>
+<a id="documentation" class="anchor" href="#documentation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Documentation</h2>
+
+<h3>
+<a id="js-object-api" class="anchor" href="#js-object-api" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>JS Object (API)</h3>
+
+<h2>
+<a id="__constructor" class="anchor" href="#__constructor" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>__constructor</h2>
+
+<p><strong><a href="https://github.com/PARAMS" class="user-mention">@PARAMS</a></strong>
+    $allowedVarAndFunc (Optional) : String[]
+        Array to PHP function and global variables updatable via PHP's object</p>
+
+<div class="highlight highlight-text-html-php"><pre><span class="pl-s1"><span class="pl-smi">$VM</span> <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-c1">JS</span>(<span class="pl-c">/*$allowedVarAndFunc*/</span>);</span>
+<span class="pl-s1"><span class="pl-c">// the VM can handle any PHP function and get/set any PHP global variables</span></span>
+<span class="pl-s1"></span>
+<span class="pl-s1"><span class="pl-smi">$VM</span> <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-c1">JS</span>([<span class="pl-s"><span class="pl-pds">'</span>$myVar<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>$args<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>$argv<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>apache_getenv<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>apache_get_module<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>headers<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span>date<span class="pl-pds">'</span></span>]);</span>
+<span class="pl-s1"><span class="pl-c">// the VM can handle only PHP function and get/set any PHP global variables listed</span></span></pre></div>
+
+<h2>
+<a id="load" class="anchor" href="#load" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>load</h2>
+
+<p><strong><a href="https://github.com/PARAMS" class="user-mention">@PARAMS</a></strong>
+    $filename : String
+        path to js source file (Absolute ou Relative)</p>
+
+<div class="highlight highlight-text-html-php"><pre><span class="pl-s1"><span class="pl-smi">$VM</span> <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-c1">JS</span>;</span>
+<span class="pl-s1"><span class="pl-smi">$VM</span><span class="pl-k">-&gt;</span>load(<span class="pl-s"><span class="pl-pds">"</span>file.js<span class="pl-pds">"</span></span>); <span class="pl-c">// relative path,  throw an error if file not found</span></span>
+<span class="pl-s1"><span class="pl-smi">$VM</span><span class="pl-k">-&gt;</span>load(<span class="pl-s"><span class="pl-pds">"</span>/tmp/file2.js<span class="pl-pds">"</span></span>); <span class="pl-c">// with an absolute path</span></span></pre></div>
+
+<h2>
+<a id="evaluate" class="anchor" href="#evaluate" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>evaluate</h2>
+
+<p><strong><a href="https://github.com/PARAMS" class="user-mention">@PARAMS</a></strong>
+    $jsCode : String
+        path to js source to execute</p>
+
+<div class="highlight highlight-text-html-php"><pre><span class="pl-s1"><span class="pl-smi">$VM</span> <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-c1">JS</span>;</span>
+<span class="pl-s1"><span class="pl-smi">$VM</span><span class="pl-k">-&gt;</span>evaluate(<span class="pl-s"><span class="pl-pds">"</span>var i = 1; print('From JS CODE',i);<span class="pl-pds">"</span></span>);</span>
+<span class="pl-s1"><span class="pl-smi">$VM</span><span class="pl-k">-&gt;</span>evaluate(<span class="pl-s"><span class="pl-pds">"</span>i++;print('From JS CODE',i);<span class="pl-pds">"</span></span>); <span class="pl-c">// allow to share data across code evalution (it's a same context)</span></span></pre></div>
+
+<p>** For more documentation look tests folder **</p>
+
+<h2>
+<a id="todo" class="anchor" href="#todo" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>TODO</h2>
+
+<ol>
+<li>Better sharing of objects between PHP and Javascript</li>
+<li>More documentation</li>
+<li>More integration :-)</li>
+</ol>
+      </section>
+    </div>
+
+    
+  </body>
+</html>
