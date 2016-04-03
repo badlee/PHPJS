@@ -28,6 +28,17 @@ typedef struct {
 } phpjs_wrap_duk_t;
 
 
+typedef struct {
+    zval* zval;
+    duk_context * ctx;
+    duk_idx_t idx;
+} phpjs_object_hanler;
+
+typedef struct {
+    zend_object zo;
+    duk_context * ctx;
+} php_js_t;
+
 BEGIN_EXTERN_C()
 
 extern PHPAPI zend_class_entry *phpjs_JS_ptr;
@@ -43,6 +54,18 @@ extern duk_ret_t duk_set_into_php(duk_context * ctx);
 extern duk_ret_t duk_get_from_php(duk_context * ctx);
 extern void php_register_function_handler(TSRMLS_D);
 extern void php_register_object_handler(TSRMLS_D);
+
+extern duk_ret_t php_mod_search_handler(duk_context *ctx);
+
+extern duk_ret_t php_object_handler(duk_context *ctx);
+extern duk_ret_t phpjs_obj_has_function(duk_context *ctx);
+extern duk_ret_t phpjs_obj_get_function(duk_context *ctx);
+extern duk_ret_t phpjs_obj_set_function(duk_context *ctx);
+extern duk_ret_t phpjs_obj_delete_function(duk_context *ctx);
+extern duk_ret_t phpjs_obj_keys_function(duk_context *ctx);
+
+extern duk_ret_t phpjs_empty_function(duk_context *ctx);
+
 extern void phpjs_wrapped_free(phpjs_wrap_duk_t * obj TSRMLS_DC);
 extern void phpjs_add_duk_context(zval * this, duk_context * ctx, duk_idx_t idx TSRMLS_DC);
 extern int zval_array_to_stack(duk_context * ctx, zval * a_args);

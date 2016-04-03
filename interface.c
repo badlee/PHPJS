@@ -8,10 +8,13 @@
 PHPAPI zend_class_entry *phpjs_JSException_ptr;
 PHPAPI zend_class_entry *phpjs_JS_ptr;
 
-typedef struct {
-    zend_object zo;
-    duk_context * ctx;
-} php_js_t;
+
+
+#define php_register_function(ctx,var,fn) \
+    duk_get_global_string(ctx, var);\
+    duk_push_c_function(ctx, phpjs_empty_function, 0 /*nargs*/);\
+    duk_put_prop_string(ctx, -2, fn);\
+    duk_pop(ctx);
 
 
 ZEND_METHOD(JS, evaluate)
@@ -38,7 +41,155 @@ ZEND_METHOD(JS, __construct)
 {
     FETCH_THIS_EX(0);
     obj->ctx = duk_create_heap(NULL, NULL, NULL, getThis(), NULL);
-    duk_php_init(obj->ctx);
+    duk_php_init(obj);
+    // set API
+    {
+        zval* a_value;
+        zval* require_fn;
+        zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|zz", &a_value, &require_fn);
+        if(IS_ARRAY ==  Z_TYPE_P(a_value)){
+            zval_to_duk(obj->ctx, "API", a_value);
+        } else {
+            duk_push_global_object(obj->ctx);
+            duk_push_true(obj->ctx);
+            duk_put_global_string(obj->ctx, "API");
+            duk_pop(obj->ctx); 
+        }
+    }
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, php_mod_search_handler, 1 /*nargs*/);
+    duk_put_prop_string(obj->ctx, -2, "__require_from_php");
+    duk_pop(obj->ctx);
+    
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, duk_set_into_php, DUK_VARARGS);
+    duk_put_prop_string(obj->ctx, -2, "__set_into_php");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, duk_get_from_php, DUK_VARARGS);
+    duk_put_prop_string(obj->ctx, -2, "__get_from_php");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_has_function, 2);
+    duk_put_prop_string(obj->ctx, -2, "__obj_has");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_get_function, 2);
+    duk_put_prop_string(obj->ctx, -2, "__obj_get");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_set_function, 3);
+    duk_put_prop_string(obj->ctx, -2, "__obj_set");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_delete_function, 2);
+    duk_put_prop_string(obj->ctx, -2, "__obj_delete");
+    duk_pop(obj->ctx);
+
+    duk_push_global_object(obj->ctx);
+    duk_push_c_function(obj->ctx, phpjs_obj_keys_function, 2);
+    duk_put_prop_string(obj->ctx, -2, "__obj_keys");
+    duk_pop(obj->ctx);
+
+
+
+    duk_push_string(obj->ctx,
+    "var PHP,$PHP;" \
+    "(function(){" \
+    "   var obj_has = __obj_has; " \
+    "   var obj_get = __obj_get; " \
+    "   var obj_set = __obj_set; " \
+    "   var obj_delete = __obj_delete; " \
+    "   var obj_keys = __obj_keys; " \
+    "   var api = API;" \
+    "   var get_from_php = __get_from_php;" \
+    "   var set_into_php = __set_into_php;" \
+    "   var require_from_php = __require_from_php;" \
+    "   __obj_has = __obj_get = __obj_set = __obj_delete = __obj_keys = API  = __require_from_php = __set_into_php = __get_from_php = undefined;" \
+    "   delete __obj_has;" \
+    "   delete __obj_get;" \
+    "   delete __obj_set;" \
+    "   delete __obj_delete;" \
+    "   delete __obj_keys;" \
+    "   delete API;" \
+    "   delete __set_into_php;" \
+    "   delete __require_from_php;" \
+    "   delete __get_from_php;" \
+
+    "   $PHP = {" \
+    "       set: function(self,name) {" \
+    "           var b = []; for(var i = 0;i<arguments.length;i++)b[i] = arguments[i];"
+    "           return (typeof api == 'boolean' && api === true) || (api.length && api.indexOf(name) != -1) ? set_into_php.apply(this,b) : undefined;" \
+    "       }," \
+    "       get: function(self,name) {" \
+    "           var b = []; for(var i = 0;i<arguments.length;i++)b[i] = arguments[i];"
+    "           return (typeof api == 'boolean' && api === true) || (api.length && api.indexOf(name) != -1) ? get_from_php.apply(this,b) : undefined;" \
+    "       }" \
+    "    };" \
+    "   $PHP = new Proxy({},$PHP);" \
+    "   PHP = $PHP;" \
+    "   var t = { "\
+    "       modSearch : {"\
+    "          enumerable: false,"\
+    "          configurable: false,"\
+    "          writable : false,"\
+    "          value: function (id,require, exportsOrg) {"\
+    "               var module = {exports:null},exports={},ret = require_from_php(String(id));"\
+    "               if (ret && typeof ret === 'string'){"\
+    "                   try{"\
+    "                      (new Function('module,exports',ret))(module,exports);"\
+    "                      exports = module.exports || exports;"\
+    "                      for(var i in exports) exportsOrg[i] = exports[i];"\
+    "                      module = exports = null;"\
+    "                      return;"\
+    "                    }catch(e){throw 'module '+id+': ' + e.message;}"\
+    "               }"\
+    "               throw new Error('module not found: \"' + id+'\"');"\
+    "           }"\
+    "       },"\
+    "       typeof : {"\
+    "          enumerable: false,"\
+    "          configurable: false,"\
+    "          writable : false,"\
+    "          value: function(v){"\
+    "              var t = typeof v;"\
+    "              return (t == 'object' && 'typeof' in v) ?"\
+    "                  ("\
+    "                      (v=v.typeof()) && typeof v=='string' ? v.toLowerCase() : t"\
+    "                  ) : t;"\
+    "          }"\
+    "       },"\
+    "       initPHPObj : {"\
+    "          enumerable: false,"\
+    "          configurable: false,"\
+    "          writable : false,"\
+    "          value: function(res,className){ "\
+    "             return new Proxy({}, { "\
+    "               has: function (self, name) { if(name=='typeof' || name=='toString' ) return true; return obj_has(res,name); }, "\
+    "               set: function (self,name,value) { return obj_set(res,name,value); }, "\
+    "               get: function (self,name) { if(name=='typeof') return function(){return (className || 'object');}; if(name=='toString') return function(){return '[php_object '+(className || 'Object')+']';}; return obj_get(res,name);}, "\
+    "               deleteProperty: function (self,name) { return obj_delete(res,name); }, "\
+    "               enumerate: function (self){ return obj_keys(res);}, "\
+    "               ownKeys: function (self){ return obj_keys(res);} "\
+    "             });"\
+    "           }"\
+    "       }    "\
+    "   };"\
+    "   Object.defineProperties(Duktape,t);" \
+    "})()"
+    );
+
+    if (duk_peval(obj->ctx) != SUCCESS) {
+        duk_pop(obj->ctx);
+        zend_error(E_ERROR, "Init JS Context failed");
+    }else
+        duk_pop(obj->ctx);
 }
 
 ZEND_METHOD(JS, load)
@@ -267,6 +418,7 @@ PHP_MINIT_FUNCTION(phpjs)
     phpjs_JS_ptr->create_object = phpjs_new_vm;
     zend_do_implement_interface(phpjs_JS_ptr, zend_ce_arrayaccess TSRMLS_CC);
 
+
     php_register_object_handler(TSRMLS_C);
     php_register_function_handler(TSRMLS_C);
 
@@ -278,7 +430,7 @@ PHP_MINFO_FUNCTION(phpjs)
 {
     php_info_print_table_start();
     php_info_print_table_header(2, "phpjs", "enabled");
-    php_info_print_table_row(2, "Version", "1.0");
+    php_info_print_table_row(2, "Version", "1.1.2");
     php_info_print_table_end();
 }
 
