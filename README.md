@@ -53,8 +53,7 @@ print(PHP.$something_else); // read a variable from PHP
 ### JS Object (API)
 
 
-__constructor
--------------
+#### __constructor
 
 **@PARAMS**
 	$allowedVarAndFunc (Optional) : String[]
@@ -68,8 +67,7 @@ $VM = new JS(['$myVar','$args','$argv','apache_getenv','apache_get_module','head
 // the VM can handle only PHP function and get/set any PHP global variables listed
 ```
 
-load
-----
+#### load
 
 **@PARAMS**
 	$filename : String
@@ -81,8 +79,7 @@ $VM->load("file.js"); // relative path,  throw an error if file not found
 $VM->load("/tmp/file2.js"); // with an absolute path
 ```
 
-evaluate
---------
+#### evaluate
 
 **@PARAMS**
 	$jsCode : String
@@ -94,7 +91,84 @@ $VM->evaluate("var i = 1; print('From JS CODE',i);");
 $VM->evaluate("i++;print('From JS CODE',i);"); // allow to share data across code evalution (it's a same context)
 ```
 
-** For more documentation look tests folder **
+### Modules
+
+#### Module loading
+
+PHPJS (Duktape) has a built-in minimal module loading framework based on [CommonJS modules version 1.1.1](http://wiki.commonjs.org/wiki/Modules/1.1.1), with additional support for module.exports.
+
+Module is writen in javascript only
+
+```JS
+// Module foo/bar
+exports.hello = function(){
+  print("world");
+}
+```
+
+You can load modules from javascript code with the global require() function:
+
+```JS
+var mod = require('foo/bar');
+mod.hello();
+```
+
+#### Module lookup function
+
+The modules lookup function is the PHP's global `JSModSearch` or the local function `$JS->JSModSearch`
+
+##### global lookup function
+
+```PHP
+// Global lookup function
+function JSModSearch($id){
+    if ($id === 'foo') {
+        return 'exports.hello = function() { print("Hello from foo!"); };';
+    } else if ($id === 'bar') {
+        return 'exports.hello = function() { print("Hello from bar!"); };';
+    }
+}
+/* shared PHP vars and function */
+$js = new JS([]);
+$JS = '
+var foo = require("foo");
+foo.hello();
+var bar = require("bar");
+bar.hello();
+try{
+	var nonExistentModule = require("nonExistentModule");
+}catch(e){
+	 print("expected exception: " + e.message);
+}
+';
+$js->evaluate($JS);
+```
+
+##### local lookup function
+
+```PHP
+/* shared PHP vars and function */
+$js = new JS();
+// Local lookup function
+$js->JSModSearch = function ($id){
+    if ($id === 'foo/bar') {
+        return 'exports.hello = function() { print("Hello from foo/bar!"); };';
+    } else if ($id === 'bar') {
+        return 'exports.hello = function() { print("Hello from bar!"); };';
+    }
+};
+
+$JS = '
+var foo = require("foo");
+foo.hello();
+';
+$js->evaluate($JS);
+```
+
+More
+----
+
+*For more documentation look tests folder*
 
 TODO
 ----
