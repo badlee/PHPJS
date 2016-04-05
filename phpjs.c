@@ -118,6 +118,7 @@ void zval_to_duk(duk_context * ctx, char * name, zval * value)
     case IS_OBJECT: {
             zval *val;
             MAKE_STD_ZVAL(val);
+            TSRMLS_FETCH();
             ZVAL_ZVAL(val,value,1,0);
             if(zend_is_callable(val, 0, NULL TSRMLS_CC)){
                 duk_push_c_function(ctx, php_object_handler, DUK_VARARGS);
