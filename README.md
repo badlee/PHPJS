@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/badlee/PHPJS.svg)](https://travis-ci.org/badlee/PHPJS)
+
 # PHPJS
 
 ***This is experimental***
