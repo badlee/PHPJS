@@ -138,7 +138,7 @@ void zval_to_duk(duk_context * ctx, char * name, zval * value)
                 duk_push_pointer(ctx, val);
                 // TODO : Get Class Name
                 int ret =FAILURE;
-                ret = zend_get_object_classname(value,&className,&classNameLength);
+                ret = zend_get_object_classname(value,&className,&classNameLength TSRMLS_CC);
                 if(ret == SUCCESS){
                     args++;
                     duk_push_string(ctx,className);
